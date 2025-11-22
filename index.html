@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitTrack Pro - Personalized Fitness</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fc;
+            min-height: 100vh;
+        }
+        .screen-container {
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+        .hidden-screen {
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+            position: absolute;
+            width: 100%;
+        }
+        .visible-screen {
+            opacity: 1;
+            transform: translateY(0);
+            position: relative;
+        }
+        .goal-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="max-w-4xl mx-auto p-4 md:p-8 relative">
+    <header class="text-center mb-8 border-b pb-4">
+        <h1 class="text-4xl font-extrabold text-blue-600">FitTrack Pro 💪</h1>
+        <p class="text-gray-500">Your Personalized Fitness Journey</p>
+    </header>
+
+    <div id="loader" class="text-center p-12 text-lg text-gray-500">
+        <svg class="animate-spin h-8 w-8 text-blue-500 mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Initializing Firebase and Authentication...
+    </div>
+
+    <!-- 1. Profile Setup Screen -->
+    <div id="profile-setup" class="screen-container hidden-screen p-6 bg-white rounded-xl shadow-lg">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">1. Setup Your Profile</h2>
+        <form id="profile-form">
+            <div class="grid md:grid-cols-2 gap-4 mb-4">
+                <input type="text" id="name" placeholder="Name" required class="p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                <input type="number" id="age" placeholder="Age" required min="10" class="p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                <select id="gender" required class="p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    <option value="" disabled selected>Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+                <input type="number" id="height" placeholder="Height (cm)" required min="100" class="p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div class="mb-4">
+                <input type="number" id="starting-weight" placeholder="Starting Weight (kg)" required min="30" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div class="mb-6 border p-4 rounded-lg">
+                <label for="starting-photo" class="block text-sm font-medium text-gray-700 mb-2">Upload Starting Photo</label>
+                <input type="file" id="starting-photo" accept="image/*" required class="w-full p-3 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <p class="text-xs text-gray-500 mt-2">This will be your baseline for progress tracking.</p>
+                <img id="starting-photo-preview" class="mt-4 w-32 h-32 object-cover rounded-lg mx-auto border-2 border-dashed p-1 hidden" alt="Starting Photo Preview">
+            </div>
+
+            <button type="submit" class="w-full bg-green-500 text-white p-3 rounded-lg font-semibold hover:bg-green-600 transition duration-150 ease-in-out shadow-md">
+                Save Profile & Set Goal
+            </button>
+        </form>
+        <p id="profile-error" class="text-red-500 mt-4 text-center hidden"></p>
+    </div>
+
+    <!-- 2. Goal Selection Screen -->
+    <div id="goal-selection" class="screen-container hidden-screen p-6 bg-white rounded-xl shadow-lg">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">2. Select Your Goal</h2>
+        <div id="goal-cards" class="grid md:grid-cols-2 gap-4">
+            <!-- Goal Cards will be inserted here by JS -->
+        </div>
+        <button onclick="goToScreen('plan-display')" class="mt-6 w-full bg-blue-500 text-white p-3 rounded-lg font-semibold hover:bg-blue-600 transition duration-150 ease-in-out shadow-md">
+            View My Plan
+        </button>
+    </div>
+
+    <!-- 3. Plan Display Screen -->
+    <div id="plan-display" class="screen-container hidden-screen p-6 bg-white rounded-xl shadow-lg">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">3. Your Personalized Plan: <span id="plan-title" class="text-blue-600"></span></h2>
+        <div id="plan-details" class="space-y-4">
+            <!-- Plan content will be inserted here by JS -->
+        </div>
+        <div class="mt-8 pt-4 border-t">
+            <button onclick="goToScreen('progress-tracker')" class="w-full bg-indigo-500 text-white p-3 rounded-lg font-semibold hover:bg-indigo-600 transition duration-150 ease-in-out shadow-md">
+                Go to Weekly Progress Tracker
+            </button>
+            <button onclick="goToScreen('goal-selection')" class="w-full mt-3 text-gray-600 bg-gray-100 p-3 rounded-lg font-semibold hover:bg-gray-200 transition duration-150 ease-in-out">
+                Change Goal
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. Weekly Progress Tracker Screen -->
+    <div id="progress-tracker" class="screen-container hidden-screen p-6 bg-white rounded-xl shadow-lg">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">4. Weekly Progress - <span id="current-week-title" class="text-blue-600"></span></h2>
+
+        <!-- Progress Input Form -->
+        <div id="progress-input-area" class="border p-4 rounded-lg mb-6 bg-gray-50">
+            <h3 class="text-xl font-semibold mb-3">Update Your Progress</h3>
+            <form id="progress-form">
+                <div class="mb-4">
+                    <label for="current-weight" class="block text-sm font-medium text-gray-700 mb-1">Current Weight (kg)</label>
+                    <input type="number" id="current-weight" placeholder="Enter current weight" required min="30" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="mb-6">
+                    <label for="current-photo" class="block text-sm font-medium text-gray-700 mb-2">Upload Current Photo</label>
+                    <input type="file" id="current-photo" accept="image/*" required class="w-full p-3 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                </div>
+                <button type="submit" class="w-full bg-green-500 text-white p-3 rounded-lg font-semibold hover:bg-green-600 transition duration-150 ease-in-out shadow-md">
+                    Submit Weekly Update
+                </button>
+                <p id="progress-error" class="text-red-500 mt-4 text-center hidden"></p>
+            </form>
+        </div>
+
+        <!-- Progress Display Area -->
+        <div id="progress-display-area" class="border-t pt-6">
+            <h3 class="text-xl font-semibold mb-4">Progress Visualizer</h3>
+            <p class="text-sm text-gray-500 mb-4">Comparing <span id="comparison-label">Starting Photo</span> with <span id="current-week-photo-label">Current Week Photo</span>.</p>
+
+            <div id="collage-container" class="grid grid-cols-2 gap-4">
+                <div class="relative rounded-lg overflow-hidden shadow-md">
+                    <img id="previous-photo-display" src="https://placehold.co/300x300/e0f2f1/042f2e?text=Previous+Photo" class="w-full h-48 object-cover transition transform hover:scale-[1.02] duration-300" alt="Previous Photo">
+                    <div class="absolute bottom-0 left-0 bg-black bg-opacity-50 text-white p-2 w-full text-center text-sm font-bold">Previous (Week <span id="previous-week-num">0</span>)</div>
+                </div>
+                <div class="relative rounded-lg overflow-hidden shadow-md">
+                    <img id="current-photo-display" src="https://placehold.co/300x300/e0f2f1/042f2e?text=Current+Photo" class="w-full h-48 object-cover transition transform hover:scale-[1.02] duration-300" alt="Current Photo">
+                    <div class="absolute bottom-0 left-0 bg-blue-600 bg-opacity-70 text-white p-2 w-full text-center text-sm font-bold">Current (Week <span id="current-week-num">1</span>)</div>
+                </div>
+            </div>
+
+            <div id="ai-feedback-container" class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg shadow-inner">
+                <h4 class="font-bold text-lg text-blue-800 flex items-center mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                    AI Progress Verification
+                </h4>
+                <p id="ai-feedback" class="text-gray-700 italic">Submit your first progress update to see feedback here!</p>
+                <p id="ai-quote" class="mt-3 text-center text-xl font-bold text-blue-700"></p>
+            </div>
+
+            <div class="mt-8 pt-4 border-t">
+                <button onclick="goToScreen('plan-display')" class="w-full text-gray-600 bg-gray-100 p-3 rounded-lg font-semibold hover:bg-gray-200 transition duration-150 ease-in-out">
+                    Back to Plan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Box for Alerts (No alert()) -->
+    <div id="message-box" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
+            <h3 id="message-title" class="text-xl font-bold mb-3 text-red-600">Error</h3>
+            <p id="message-content" class="text-gray-700 mb-4">Something went wrong.</p>
+            <button id="message-close" class="w-full bg-red-500 text-white p-2 rounded-lg hover:bg-red-600">Close</button>
+        </div>
+    </div>
+
+</div>
+
+<!-- Firebase Scripts -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, query, orderBy, getDocs, onSnapshot, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Uncomment to see detailed Firebase logs
+    // setLogLevel('Debug');
+
+    const app = document.getElementById('app');
+    const loader = document.getElementById('loader');
+    const screens = {
+        'profile-setup': document.getElementById('profile-setup'),
+        'goal-selection': document.getElementById('goal-selection'),
+        'plan-display': document.getElementById('plan-display'),
+        'progress-tracker': document.getElementById('progress-tracker')
+    };
+    let currentScreen = 'loader';
+
+    // --- Global Variables (Canvas Provided) ---
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    // --- Firebase Instances and State ---
+    let firebaseApp;
+    let db;
+    let auth;
+    let userId = null;
+    let userProfile = null;
+    let progressRecords = [];
+
+    // --- UI/UX Functions ---
+
+    /** Displays a custom message box instead of alert() */
+    function showMessage(title, message, isError = true) {
+        document.getElementById('message-title').textContent = title;
+        document.getElementById('message-content').textContent = message;
+        const box = document.getElementById('message-box');
+        box.classList.remove('hidden', isError ? 'text-green-600' : 'text-red-600');
+        box.classList.add('flex');
+        document.getElementById('message-close').onclick = () => {
+            box.classList.add('hidden');
+            box.classList.remove('flex');
+        };
+    }
+
+    /** Changes the currently visible screen with a transition */
+    function goToScreen(screenName) {
+        if (currentScreen !== 'loader') {
+            screens[currentScreen].classList.remove('visible-screen');
+            screens[currentScreen].classList.add('hidden-screen');
+        }
+        currentScreen = screenName;
+        if (screenName !== 'loader') {
+            screens[currentScreen].classList.remove('hidden-screen');
+            screens[currentScreen].classList.add('visible-screen');
+        }
+
+        // Special handlers for screens that need data refresh
+        if (screenName === 'goal-selection' && userProfile) {
+            renderGoalCards(userProfile.goal);
+        } else if (screenName === 'plan-display' && userProfile) {
+            renderPlanDisplay();
+        } else if (screenName === 'progress-tracker' && userProfile) {
+            renderProgressTracker(userProfile);
+        }
+    }
+
+    /** Converts a File object to a Base64 string */
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // --- Firestore Paths ---
+    const getProfileDocRef = (uid) => doc(db, 'artifacts', appId, 'users', uid, 'profile', 'user_data');
+    const getProgressCollectionRef = (uid) => collection(db, 'artifacts', appId, 'users', uid, 'progress_records');
+
+    // --- Firebase Initialization and Authentication ---
+
+    async function initFirebaseAndAuth() {
+        if (!firebaseConfig) {
+            showMessage('Configuration Error', 'Firebase configuration is missing.', true);
+            return;
+        }
+        try {
+            firebaseApp = initializeApp(firebaseConfig);
+            db = getFirestore(firebaseApp);
+            auth = getAuth(firebaseApp);
+
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+                await signInAnonymously(auth);
+            }
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    await loadUserProfile();
+                    setupProgressListener();
+                } else {
+                    showMessage('Authentication Failed', 'Could not sign in. Please refresh.', true);
+                }
+            });
+
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            showMessage('Setup Error', `Firebase initialization failed: ${error.message}`, true);
+        }
+    }
+
+    // --- Data Loading and Listeners ---
+
+    async function loadUserProfile() {
+        const profileRef = getProfileDocRef(userId);
+        const docSnap = await getDoc(profileRef);
+
+        if (docSnap.exists()) {
+            userProfile = docSnap.data();
+            console.log("Profile Loaded:", userProfile);
+            // Decide where to go based on if the goal is set
+            goToScreen(userProfile.goal ? 'plan-display' : 'goal-selection');
+        } else {
+            console.log("No profile found, redirecting to setup.");
+            goToScreen('profile-setup');
+        }
+        loader.classList.add('hidden');
+    }
+
+    function setupProgressListener() {
+        if (!db || !userId) return;
+
+        const progressRef = getProgressCollectionRef(userId);
+        const q = query(progressRef); // No orderBy here to avoid index requirements
+
+        // Use onSnapshot for real-time updates
+        onSnapshot(q, (snapshot) => {
+            progressRecords = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                // Ensure weekNumber is a number for sorting
+                data.weekNumber = parseInt(data.weekNumber, 10);
+                progressRecords.push(data);
+            });
+            // Sort in memory by weekNumber
+            progressRecords.sort((a, b) => a.weekNumber - b.weekNumber);
+            console.log("Progress Records Updated:", progressRecords);
+
+            // If we are on the progress screen, re-render
+            if (currentScreen === 'progress-tracker') {
+                renderProgressTracker(userProfile);
+            }
+        }, (error) => {
+            console.error("Error setting up progress listener:", error);
+            showMessage('Data Error', 'Failed to load progress records.', true);
+        });
+    }
+
+
+    // --- 1. Profile Setup Logic ---
+
+    document.getElementById('starting-photo').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        const preview = document.getElementById('starting-photo-preview');
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        } else {
+            preview.classList.add('hidden');
+        }
+    });
+
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const name = form.elements['name'].value.trim();
+        const age = parseInt(form.elements['age'].value, 10);
+        const gender = form.elements['gender'].value;
+        const heightCm = parseFloat(form.elements['height'].value);
+        const startingWeightKg = parseFloat(form.elements['starting-weight'].value);
+        const photoFile = form.elements['starting-photo'].files[0];
+
+        if (!name || !age || !gender || !heightCm || !startingWeightKg || !photoFile) {
+            document.getElementById('profile-error').textContent = 'Please fill all fields and upload a photo.';
+            document.getElementById('profile-error').classList.remove('hidden');
+            return;
+        }
+
+        form.querySelector('button').disabled = true;
+
+        try {
+            const startingPhotoBase64 = await fileToBase64(photoFile);
+
+            userProfile = {
+                name, age, gender, heightCm, startingWeightKg,
+                startingPhotoBase64,
+                goal: null // Goal is set on the next screen
+            };
+
+            const profileRef = getProfileDocRef(userId);
+            await setDoc(profileRef, userProfile);
+
+            document.getElementById('profile-error').classList.add('hidden');
+            form.querySelector('button').disabled = false;
+            goToScreen('goal-selection');
+
+        } catch (error) {
+            console.error("Error saving profile:", error);
+            showMessage('Save Error', 'Failed to save profile data or convert image.', true);
+            form.querySelector('button').disabled = false;
+        }
+    });
+
+    // --- 2. Goal Selection Logic ---
+
+    const goals = [
+        { key: 'weightLoss', title: 'Weight Loss', icon: '🔥', color: 'bg-red-500', desc: 'Shed pounds and increase endurance.' },
+        { key: 'weightGain', title: 'Weight Gain', icon: '💪', color: 'bg-yellow-500', desc: 'Build muscle mass and strength.' },
+        { key: 'dietNutrition', title: 'Diet Nutrition', icon: '🍎', color: 'bg-green-500', desc: 'Focus purely on meal plans and calorie tracking.' },
+        { key: 'cardioTraining', title: 'Cardio Training', icon: '🏃', color: 'bg-blue-500', desc: 'Maximize heart health and stamina.' }
+    ];
+
+    function selectGoal(goalKey) {
+        if (!userProfile) return;
+        userProfile.goal = goalKey;
+        const profileRef = getProfileDocRef(userId);
+        updateDoc(profileRef, { goal: goalKey })
+            .then(() => {
+                console.log('Goal updated successfully:', goalKey);
+                renderGoalCards(goalKey); // Update UI
+            })
+            .catch(error => {
+                console.error('Error updating goal:', error);
+                showMessage('Update Error', 'Failed to save your goal.', true);
+            });
+    }
+
+    function renderGoalCards(selectedGoal) {
+        const container = document.getElementById('goal-cards');
+        container.innerHTML = goals.map(goal => `
+            <div onclick="selectGoal('${goal.key}')"
+                 class="goal-card p-5 rounded-xl border-2 cursor-pointer transition duration-300 ease-in-out ${goal.key === selectedGoal ? 'border-blue-600 ring-4 ring-blue-100' : 'border-gray-200 hover:border-blue-300'} bg-white">
+                <div class="text-4xl mb-2">${goal.icon}</div>
+                <h3 class="text-xl font-bold ${goal.key === selectedGoal ? 'text-blue-600' : 'text-gray-800'}">${goal.title}</h3>
+                <p class="text-gray-500 text-sm">${goal.desc}</p>
+                ${goal.key === selectedGoal ? '<span class="text-xs font-semibold text-white bg-blue-500 px-2 py-0.5 mt-2 inline-block rounded-full">CURRENT</span>' : ''}
+            </div>
+        `).join('');
+    }
+
+    // --- 3. Plan Display Logic ---
+
+    const plans = {
+        weightLoss: {
+            title: 'Weight Loss & Toning Plan (2000 kcals)',
+            content: `
+                <div class="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-400"><strong>Diet Goal:</strong> Maintain a deficit diet of 2000 kcals per day.</div>
+                <div class="space-y-3">
+                    <h4 class="font-bold text-lg text-gray-700">Warm Up (5 mins)</h4>
+                    <ul class="list-disc list-inside ml-4 space-y-1">
+                        <li>Jumping Jacks (30 reps x 3 sets)</li>
+                        <li>Stretching each muscle for 15 seconds</li>
+                    </ul>
+                    <h4 class="font-bold text-lg text-gray-700">Workout Routine</h4>
+                    <ul class="list-disc list-inside ml-4 space-y-1">
+                        <li>Half Squats (10 reps x 3 sets)</li>
+                        <li>Shoulder Press (8 reps x 3 sets)</li>
+                        <li>Peck Deck (10 reps x 3 sets)</li>
+                        <li>Lat Pull Down (10 reps x 3 sets)</li>
+                    </ul>
+                    <h4 class="font-bold text-lg text-gray-700">Cardio</h4>
+                    <ul class="list-disc list-inside ml-4 space-y-1">
+                        <li>Treadmill: Fast walk for 10 minutes (Maintain 6-7 km/h)</li>
+                    </ul>
+                </div>
+            `
+        },
+        weightGain: {
+            title: 'Muscle Mass & Strength Plan (3000 kcals+)',
+            content: `
+                <div class="bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-400"><strong>Diet Goal:</strong> Maintain a bulk diet of 3000+ kcals and 1.5x protein of your weight (grams).</div>
+                <div class="space-y-3">
+                    <h4 class="font-bold text-lg text-gray-700">Brief Warm Up (5 mins)</h4>
+                    <h4 class="font-bold text-lg text-gray-700">Workout Routine</h4>
+                    <ul class="list-disc list-inside ml-4 space-y-1">
+                        <li>Push Ups (15 reps x 3 sets)</li>
+                        <li>Full Squats (15 reps x 3 sets)</li>
+                        <li>Seated Rows (15 reps x 3 sets)</li>
+                        <li>Bench Press (Light weight, 8 reps x 3 sets)</li>
+                        <li>Shoulder Press (15 reps x 3 sets)</li>
+                        <li>Pull Ups (10 reps x 2 sets)</li>
+                    </ul>
+                </div>
+            `
+        },
+        dietNutrition: {
+            title: 'Customized Diet Nutrition Plan',
+            content: `
+                <p class="text-sm text-gray-600 mb-4">Please select a specific diet focus:</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <button id="diet-loss-btn" class="p-4 rounded-xl font-bold transition duration-150 border-2" onclick="showDietDetails('dietLoss')">Weight Loss Diet 🥗</button>
+                    <button id="diet-gain-btn" class="p-4 rounded-xl font-bold transition duration-150 border-2" onclick="showDietDetails('dietGain')">Weight Gain Diet 🥩</button>
+                </div>
+                <div id="diet-details" class="mt-6 p-4 bg-gray-50 rounded-lg hidden">
+                    <!-- Diet details will be injected here -->
+                </div>
+            `
+        },
+        cardioTraining: {
+            title: 'Cardiovascular Endurance Plan',
+            content: `
+                <div class="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-400"><strong>Focus:</strong> Improve heart health and stamina.</div>
+                <div class="space-y-3">
+                    <h4 class="font-bold text-lg text-gray-700">Warm Up & Prep (5 mins)</h4>
+                    <ul class="list-disc list-inside ml-4 space-y-1">
+                        <li>Brief Warm Up</li>
+                        <li>Jumping Jacks (30 reps x 3 sets)</li>
+                        <li>Stretching each muscle for 15 seconds</li>
+                    </ul>
+                    <h4 class="font-bold text-lg text-gray-700">Cardio Routine</h4>
+                    <ul class="list-disc list-inside ml-4 space-y-1">
+                        <li>Pushups (10 reps x 2 sets) - *To keep heart rate up*</li>
+                        <li>Skipping (60 seconds x 3 sets)</li>
+                        <li>Cycling (10 minutes)</li>
+                        <li>Treadmill: Fast walk (10 minutes)</li>
+                    </ul>
+                </div>
+            `
+        }
+    };
+
+    const dietPlans = {
+        dietLoss: {
+            title: 'Weight Loss Diet Plan',
+            plan: {
+                Breakfast: ['High protein oats', '2 boiled eggs', '1 cup green tea'],
+                Lunch: ['200g rice', '100ml dal', 'Any high protein curry (200g)', 'Salad'],
+                Snacks: ['2 brown breads with peanut butter', 'Black coffee (without sugar)'],
+                Dinner: ['2 rotis', 'Boiled chicken/paneer (150g)', '100ml curd', 'Boiled veggies']
+            }
+        },
+        dietGain: {
+            title: 'Weight Gain Diet Plan',
+            plan: {
+                Breakfast: ['4 boiled eggs', 'Muesli (50-60g)', '2 bananas'],
+                Lunch: ['200g rice', '150ml dal', '2 boiled eggs', 'Chicken/paneer curry (200g)', 'Salad'],
+                Snacks: ['Sattu shake', 'Sprouts (100g)'],
+                Dinner: ['4 rotis', 'Chicken/paneer (150g)', 'Curd (200g)', '250ml milk']
+            }
+        }
+    };
+
+    window.showDietDetails = (dietKey) => {
+        const detailContainer = document.getElementById('diet-details');
+        const planData = dietPlans[dietKey];
+        const lossBtn = document.getElementById('diet-loss-btn');
+        const gainBtn = document.getElementById('diet-gain-btn');
+
+        if (dietKey === 'dietLoss') {
+            lossBtn.classList.add('bg-green-500', 'text-white');
+            lossBtn.classList.remove('bg-white');
+            gainBtn.classList.remove('bg-yellow-500', 'text-white');
+            gainBtn.classList.add('bg-white');
+        } else {
+            gainBtn.classList.add('bg-yellow-500', 'text-white');
+            gainBtn.classList.remove('bg-white');
+            lossBtn.classList.remove('bg-green-500', 'text-white');
+            lossBtn.classList.add('bg-white');
+        }
+
+        let html = `<h4 class="font-bold text-xl text-blue-600 mb-3">${planData.title}</h4>`;
+        for (const meal in planData.plan) {
+            html += `<p class="font-semibold mt-3">${meal}:</p>`;
+            html += `<ul class="list-disc list-inside ml-4 space-y-1 text-gray-600">`;
+            planData.plan[meal].forEach(item => {
+                html += `<li>${item}</li>`;
+            });
+            html += `</ul>`;
+        }
+
+        detailContainer.innerHTML = html;
+        detailContainer.classList.remove('hidden');
+    }
+
+    function renderPlanDisplay() {
+        if (!userProfile || !userProfile.goal) return;
+
+        const goalKey = userProfile.goal;
+        const plan = plans[goalKey];
+
+        document.getElementById('plan-title').textContent = plan.title;
+        document.getElementById('plan-details').innerHTML = plan.content;
+
+        // If 'dietNutrition' is the main goal, default to showing the 'weightLoss' diet first
+        if (goalKey === 'dietNutrition') {
+            showDietDetails('dietLoss');
+        }
+    }
+
+    // --- 4. Progress Tracker Logic ---
+
+    function getComparisonPhotos(profile, records) {
+        let currentPhoto = 'https://placehold.co/300x300/e0f2f1/042f2e?text=Current+Photo';
+        let previousPhoto = 'https://placehold.co/300x300/f3f4f6/374151?text=Starting+Photo';
+        let previousWeight = profile.startingWeightKg;
+        let previousWeekNum = 0;
+        let currentWeekNum = records.length + 1;
+
+        if (records.length > 0) {
+            const latestRecord = records[records.length - 1];
+            currentWeekNum = latestRecord.weekNumber;
+            currentPhoto = latestRecord.photoBase64;
+            currentWeight = latestRecord.currentWeightKg;
+            
+            // Comparison is current week vs. previous week
+            if (records.length > 1) {
+                const secondLatestRecord = records[records.length - 2];
+                previousPhoto = secondLatestRecord.photoBase64;
+                previousWeight = secondLatestRecord.currentWeightKg;
+                previousWeekNum = secondLatestRecord.weekNumber;
+            } else {
+                 // First update: compare with starting photo
+                previousPhoto = profile.startingPhotoBase64;
+                previousWeight = profile.startingWeightKg;
+                previousWeekNum = 0;
+            }
+        }
+        
+        return { currentPhoto, previousPhoto, previousWeight, previousWeekNum, currentWeekNum };
+    }
+
+
+    function simulateAIAgentFeedback(profile, currentWeight, previousWeight, currentWeekNum) {
+        const delta = previousWeight - currentWeight;
+        const goal = profile.goal;
+        let feedback = "";
+        let quote = "";
+        let emoji = "🙂";
+        let color = "text-gray-700";
+
+        const lossGoals = ['weightLoss', 'dietNutrition', 'cardioTraining'];
+        const gainGoals = ['weightGain'];
+        const isLossGoal = lossGoals.includes(goal);
+        const isGainGoal = gainGoals.includes(goal);
+
+        if (currentWeekNum === 1) {
+             feedback += `Welcome to Week 1! Your starting weight was ${profile.startingWeightKg}kg.`;
+        } else {
+             feedback += `Comparing your progress from Week ${currentWeekNum - 1} (${previousWeight}kg) to Week ${currentWeekNum} (${currentWeight}kg). `;
+        }
+
+
+        if (isLossGoal) {
+            if (delta > 0.5) {
+                feedback += `Excellent work! You successfully lost ${delta.toFixed(2)}kg this week! The visual change in your photo is noticeable and shows great discipline. Keep up the momentum!`;
+                quote = "Every drop of sweat is a step closer to your goal. 🔥";
+                emoji = "🎉";
+                color = "text-green-600";
+            } else if (delta >= 0) {
+                feedback += `You maintained or slightly reduced your weight (by ${delta.toFixed(2)}kg). Great effort! Small changes accumulate. Focus on high-intensity exercise and consistent diet adherence next week.`;
+                quote = "Consistency is what transforms average into excellence. 🎯";
+                emoji = "👍";
+                color = "text-yellow-600";
+            } else {
+                feedback += `Your weight increased by ${Math.abs(delta).toFixed(2)}kg. Don't worry, this happens! Review your diet log and ensure you are not over-consuming calories. Let's get back on track next week.`;
+                quote = "The comeback is always stronger than the setback. You got this! 💪";
+                emoji = "😔";
+                color = "text-red-600";
+            }
+        } else if (isGainGoal) {
+            if (delta < -0.5) {
+                feedback += `Fantastic progress! You gained ${Math.abs(delta).toFixed(2)}kg this week. The AI detects visible muscle fullness in your current photo. Ensure your protein intake remains high!`;
+                quote = "The pain you feel today will be the strength you feel tomorrow. 🏋️";
+                emoji = "🚀";
+                color = "text-green-600";
+            } else if (delta <= 0) {
+                feedback += `You maintained or slightly increased your weight (by ${Math.abs(delta).toFixed(2)}kg). Solid effort! Try adding an extra meal or an extra set to your routine next week to push past this plateau.`;
+                quote = "If it doesn't challenge you, it doesn't change you. Let's push! 📈";
+                emoji = "👌";
+                color = "text-yellow-600";
+            } else {
+                feedback += `Your weight decreased by ${delta.toFixed(2)}kg. We need to boost those calories! Are you hitting your protein targets? Eat more whole foods and stick to the 3000+ kcal plan.`;
+                quote = "Fuel your body, feed your potential. Eat big to get big! 🍔";
+                emoji = "🤔";
+                color = "text-red-600";
+            }
+        }
+        
+        return { feedback: `<span class="${color}">${feedback}</span>`, quote: `${quote} ${emoji}` };
+    }
+
+    function renderProgressTracker(profile) {
+        if (!profile || !progressRecords) return;
+
+        const currentWeekNum = progressRecords.length + 1;
+        document.getElementById('current-week-title').textContent = `Week ${currentWeekNum}`;
+
+        const isNewWeek = progressRecords.every(r => r.weekNumber < currentWeekNum);
+        
+        // Hide/Show input form based on whether the current week is already submitted
+        const inputArea = document.getElementById('progress-input-area');
+        if (isNewWeek) {
+            inputArea.classList.remove('hidden');
+            document.getElementById('current-week-num').textContent = currentWeekNum;
+        } else {
+            inputArea.classList.add('hidden');
+            // If the latest record is for the current week, update comparison based on that data
+            const latestRecord = progressRecords[progressRecords.length - 1];
+            updateProgressDisplay(profile, progressRecords.slice(0, progressRecords.length - 1), latestRecord);
+        }
+
+        // Always display the comparison using the latest data, even if it's from a previous week
+        if (progressRecords.length > 0) {
+            const latestRecord = progressRecords[progressRecords.length - 1];
+            updateProgressDisplay(profile, progressRecords.slice(0, progressRecords.length - 1), latestRecord);
+        } else {
+            // No records yet, show default comparison (Starting Photo vs. Placeholder)
+            document.getElementById('previous-photo-display').src = profile.startingPhotoBase64;
+            document.getElementById('current-photo-display').src = `https://placehold.co/300x300/e0f2f1/042f2e?text=Upload+Your+Week+1+Photo`;
+            document.getElementById('previous-week-num').textContent = 0;
+            document.getElementById('current-week-num').textContent = 1;
+            document.getElementById('comparison-label').textContent = 'Starting Photo';
+            document.getElementById('current-week-photo-label').textContent = 'Week 1 Photo';
+            document.getElementById('ai-feedback').innerHTML = "Submit your first progress update to see feedback here!";
+            document.getElementById('ai-quote').textContent = '';
+        }
+    }
+
+    function updateProgressDisplay(profile, previousRecords, currentRecord) {
+        const currentWeekNum = currentRecord.weekNumber;
+        let previousPhoto = profile.startingPhotoBase64;
+        let previousWeight = profile.startingWeightKg;
+        let previousWeekNum = 0;
+
+        if (previousRecords.length > 0) {
+            // Previous record exists
+            const prevRecord = previousRecords[previousRecords.length - 1];
+            previousPhoto = prevRecord.photoBase64;
+            previousWeight = prevRecord.currentWeightKg;
+            previousWeekNum = prevRecord.weekNumber;
+            document.getElementById('comparison-label').textContent = `Week ${previousWeekNum} Photo`;
+        } else {
+             // First record, comparing to starting photo
+             document.getElementById('comparison-label').textContent = 'Starting Photo';
+        }
+
+        document.getElementById('current-week-photo-label').textContent = `Week ${currentWeekNum} Photo`;
+        document.getElementById('previous-photo-display').src = previousPhoto;
+        document.getElementById('current-photo-display').src = currentRecord.photoBase64;
+        document.getElementById('previous-week-num').textContent = previousWeekNum;
+        document.getElementById('current-week-num').textContent = currentWeekNum;
+
+        // Generate AI Feedback
+        const feedbackData = simulateAIAgentFeedback(profile, currentRecord.currentWeightKg, previousWeight, currentWeekNum);
+        document.getElementById('ai-feedback').innerHTML = feedbackData.feedback;
+        document.getElementById('ai-quote').textContent = feedbackData.quote;
+    }
+
+
+    document.getElementById('progress-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const currentWeightKg = parseFloat(form.elements['current-weight'].value);
+        const photoFile = form.elements['current-photo'].files[0];
+
+        if (!currentWeightKg || !photoFile) {
+            document.getElementById('progress-error').textContent = 'Please enter your weight and upload a photo.';
+            document.getElementById('progress-error').classList.remove('hidden');
+            return;
+        }
+
+        form.querySelector('button').disabled = true;
+
+        try {
+            const currentPhotoBase64 = await fileToBase64(photoFile);
+            const nextWeekNumber = progressRecords.length + 1;
+
+            const newRecord = {
+                weekNumber: nextWeekNumber,
+                currentWeightKg: currentWeightKg,
+                photoBase64: currentPhotoBase64,
+                timestamp: new Date().toISOString()
+            };
+
+            const progressRef = getProgressCollectionRef(userId);
+            // Add doc ensures a unique ID, weekNumber is stored as a field for reference
+            await addDoc(progressRef, newRecord);
+
+            // The onSnapshot listener will catch this change and re-render automatically.
+            document.getElementById('progress-error').classList.add('hidden');
+            form.reset(); // Clear form for next time
+            form.querySelector('button').disabled = false;
+            document.getElementById('progress-input-area').classList.add('hidden');
+            showMessage('Progress Saved!', `Your Week ${nextWeekNumber} progress has been saved successfully! Check the progress visualizer.`, false);
+
+
+        } catch (error) {
+            console.error("Error saving progress:", error);
+            showMessage('Save Error', 'Failed to save weekly progress data.', true);
+            form.querySelector('button').disabled = false;
+        }
+    });
+
+    // Make functions globally accessible for inline HTML calls (like selectGoal)
+    window.selectGoal = selectGoal;
+    window.goToScreen = goToScreen;
+
+    // Start the application
+    initFirebaseAndAuth();
+
+</script>
+
+</body>
+</html>
