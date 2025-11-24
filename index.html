@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitTrack - Your Fitness Companion</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- EmailJS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+</head>
+<body>
+    <!-- Welcome Page -->
+    <div class="welcome-page" id="welcomePage">
+        <h1 class="welcome-title">Welcome</h1>
+        <p class="welcome-subtitle">Your health is our first priority</p>
+        <button class="next-btn" id="startQuizBtn">Let's Start</button>
+    </div>
+
+    <!-- Login Page -->
+    <div class="auth-container" id="loginPage" style="display: none;">
+        <div class="auth-card">
+            <h1 class="auth-title">Welcome Back</h1>
+            <p class="auth-subtitle">Login to continue your fitness journey</p>
+            <div id="loginForm">
+                <div class="input-group">
+                    <input type="email" class="input-field" id="loginEmail" placeholder="Email">
+                </div>
+                <div class="input-group">
+                    <input type="password" class="input-field" id="loginPassword" placeholder="Password">
+                    <label class="show-password">
+                        <input type="checkbox" onclick="togglePassword('loginPassword')">
+                        <span>Show password</span>
+                    </label>
+                </div>
+                <button type="button" class="next-btn" id="loginBtn" onclick="handleLogin()">Login</button>
+                <p class="auth-switch">Don't have an account? <span onclick="showRegister()">Register</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Page -->
+    <div class="auth-container" id="registerPage" style="display: none;">
+        <div class="auth-card">
+            <h1 class="auth-title">Create Account</h1>
+            <p class="auth-subtitle">Start your fitness journey today</p>
+            <div id="registerForm">
+                <div class="input-group">
+                    <input type="email" class="input-field" id="registerEmail" placeholder="Email">
+                </div>
+                <div class="input-group">
+                    <input type="password" class="input-field" id="registerPassword" placeholder="Password" minlength="6">
+                </div>
+                <div class="input-group">
+                    <input type="password" class="input-field" id="confirmPassword" placeholder="Confirm Password" minlength="6">
+                    <label class="show-password">
+                        <input type="checkbox" onclick="toggleRegisterPasswords()">
+                        <span>Show passwords</span>
+                    </label>
+                </div>
+                <button type="button" class="next-btn" id="registerBtn" onclick="handleRegister()">Register</button>
+                <p class="auth-switch">Already have an account? <span onclick="showLogin()">Login</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verification Code Page -->
+    <div class="auth-container" id="verificationPage" style="display: none;">
+        <div class="auth-card">
+            <h1 class="auth-title">Verify Email</h1>
+            <p class="auth-subtitle" id="verificationEmail">Enter the 6-digit code sent to your email</p>
+            <div id="verificationForm">
+                <div class="input-group">
+                    <input type="text" class="input-field" id="verificationCode" placeholder="000000" maxlength="6" style="text-align: center; font-size: 2rem; letter-spacing: 0.5rem;">
+                </div>
+                <button type="button" class="next-btn" onclick="verifyCode()">Verify</button>
+                <button type="button" class="next-btn" onclick="resendCode()" style="background: #ff6b00; margin-top: 1rem;">Resend Code</button>
+                <p id="verificationMessage" style="text-align: center; color: #888; margin-top: 1rem; font-size: 0.9rem;"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Section -->
+    <div class="quiz-container" id="quizContainer" style="display: none;">
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        
+        <div class="quiz-content" id="quizContent">
+            <div class="question-number">Question <span id="currentQ">1</span> of 8</div>
+            <h1 id="questionTitle">What is your primary fitness goal?</h1>
+            <div class="options" id="optionsContainer"></div>
+            <button class="next-btn" id="nextBtn" disabled>Continue</button>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div class="app-container" id="appContainer" style="display: none;">
+        <!-- Sidebar Navigation -->
+        <nav class="bottom-nav">
+            <div class="nav-logo">
+                <h1>FitTrack</h1>
+                <p>Your Fitness Companion</p>
+                <p style="font-size: 0.85rem; color: #888; margin-top: 0.5rem;" id="userEmail"></p>
+            </div>
+            <button class="nav-btn active" data-page="home">
+                <span class="nav-icon">🏠</span>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-btn" data-page="nutrition">
+                <span class="nav-icon">🍎</span>
+                <span>Nutrition</span>
+            </button>
+            <button class="nav-btn" data-page="workout">
+                <span class="nav-icon">💪</span>
+                <span>Workout Plan</span>
+            </button>
+            <button class="nav-btn" onclick="logout()" style="margin-top: auto; border-top: 1px solid #2a2a2a;">
+                <span class="nav-icon">🚪</span>
+                <span>Logout</span>
+            </button>
+        </nav>
+
+        <!-- Home Page -->
+        <div class="page active" id="homePage">
+            <header class="page-header">
+                <h2>Dashboard</h2>
+                <div class="user-greeting">Welcome back! Track your fitness journey</div>
+            </header>
+
+            <div class="dashboard-grid">
+                <div class="goal-countdown">
+                    <h3>Goal Progress</h3>
+                    <div class="countdown-card">
+                        <div class="countdown-number" id="daysRemaining">90</div>
+                        <div class="countdown-label">Days Remaining</div>
+                        <div class="goal-text" id="goalText">Muscle Gain Program</div>
+                        <div style="margin-top: 15px; font-size: 14px; color: #888;">
+                            <span id="workoutsCompleted">0</span> / <span id="totalDays">90</span> workouts completed
+                        </div>
+                        <div style="margin-top: 8px; font-size: 14px; color: #dc143c;">
+                            <span id="timeframeMonths">3</span> month goal
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-stats">
+                    <div class="quick-stat-card">
+                        <span class="stat-icon">🔥</span>
+                        <div>
+                            <div class="quick-stat-value" id="caloriesConsumedDash">0</div>
+                            <div class="quick-stat-label">Calories Consumed</div>
+                        </div>
+                    </div>
+                    <div class="quick-stat-card">
+                        <span class="stat-icon">🎯</span>
+                        <div>
+                            <div class="quick-stat-value" id="caloriesRemaining">2,500</div>
+                            <div class="quick-stat-label">Calories Remaining</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="weight-tracking">
+                <h3>Weight Progress Over Time</h3>
+                <canvas id="weightChart"></canvas>
+                <div class="weight-stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="currentWeight">75 kg</div>
+                        <div class="stat-label">Current Weight</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value change-positive" id="weeklyChange">+0.5 kg</div>
+                        <div class="stat-label">This Week</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="targetWeight">80 kg</div>
+                        <div class="stat-label">Target Weight</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nutrition Page -->
+        <div class="page" id="nutritionPage">
+            <header class="page-header">
+                <h2>Nutrition Tracker</h2>
+                <div class="date-display" id="dateDisplay"></div>
+            </header>
+
+            <div class="nutrition-overview">
+                <div class="calorie-ring">
+                    <svg viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" class="ring-bg"></circle>
+                        <circle cx="50" cy="50" r="45" class="ring-progress" id="calorieRing"></circle>
+                    </svg>
+                    <div class="ring-text">
+                        <div class="ring-value" id="caloriesConsumed">1,850</div>
+                        <div class="ring-label">/ 2,500 kcal</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="macro-bars">
+                <div class="macro-item">
+                    <div class="macro-header">
+                        <span>Protein</span>
+                        <span><span id="proteinValue">120</span>g / 150g</span>
+                    </div>
+                    <div class="macro-bar">
+                        <div class="macro-progress" id="proteinBar" style="width: 80%"></div>
+                    </div>
+                </div>
+                <div class="macro-item">
+                    <div class="macro-header">
+                        <span>Carbs</span>
+                        <span><span id="carbsValue">200</span>g / 300g</span>
+                    </div>
+                    <div class="macro-bar">
+                        <div class="macro-progress" id="carbsBar" style="width: 67%"></div>
+                    </div>
+                </div>
+                <div class="macro-item">
+                    <div class="macro-header">
+                        <span>Fats</span>
+                        <span><span id="fatsValue">50</span>g / 70g</span>
+                    </div>
+                    <div class="macro-bar">
+                        <div class="macro-progress" id="fatsBar" style="width: 71%"></div>
+                    </div>
+                </div>
+                <div class="macro-item">
+                    <div class="macro-header">
+                        <span>Fiber</span>
+                        <span><span id="fiberValue">18</span>g / 25g</span>
+                    </div>
+                    <div class="macro-bar">
+                        <div class="macro-progress" id="fiberBar" style="width: 72%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="add-btn" id="addFoodBtn">+ Add Food</button>
+
+            <div class="food-log">
+                <h3>Today's Meals</h3>
+                <div id="foodList"></div>
+            </div>
+        </div>
+
+        <!-- Workout Page -->
+        <div class="page" id="workoutPage">
+            <header class="page-header">
+                <h2>Workout Plan</h2>
+                <div class="workout-week">Week 1 of 12</div>
+            </header>
+
+            <div class="workout-schedule" id="workoutSchedule"></div>
+
+            <div class="exercise-progress">
+                <h3>Progress Tracking</h3>
+                <canvas id="exerciseChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Food Modal -->
+    <div class="modal" id="addFoodModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Food</h3>
+                <button class="close-btn" id="closeModal">&times;</button>
+            </div>
+            <input type="text" id="foodSearch" placeholder="Search food..." class="search-input">
+            <div class="food-suggestions" id="foodSuggestions"></div>
+            <div class="food-input-section" id="foodInputSection" style="display: none;">
+                <h4 id="selectedFoodName"></h4>
+                <div class="quantity-input">
+                    <label>Quantity (grams)</label>
+                    <input type="number" id="foodQuantity" value="100" min="1">
+                </div>
+                <div class="nutrition-preview" id="nutritionPreview"></div>
+                <button class="next-btn" id="confirmAddFood">Add to Log</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="script.js?v=2"></script>
+</body>
+</html>
